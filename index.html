@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>보석십자수 / 비즈 도안 생성기</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      margin: 0;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: #f5f5f5;
+    }
+
+    h1 {
+      font-size: 18px;
+      margin: 0 0 6px;
+      text-align: left;
+      word-break: keep-all;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .panel {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 3px;
+    }
+
+    input[type="number"],
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 13px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-bottom: 6px;
+      font-family: inherit;
+    }
+
+    input[type="file"] {
+      margin-bottom: 8px;
+      font-size: 13px;
+      width: 100%;
+    }
+
+    button {
+      padding: 8px 10px;
+      font-size: 13px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      background: #222;
+      color: #fff;
+      margin-right: 6px;
+    }
+    button:disabled {
+      opacity: .4;
+      cursor: default;
+    }
+
+    .mini-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: 999px;
+      background: #444;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+
+    canvas {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      max-width: 100%;
+      display: block;
+    }
+
+    .preview-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .inline-group {
+      display: flex;
+      gap: 6px;
+    }
+    .inline-group > div {
+      flex: 1;
+    }
+
+    .legend {
+      margin-top: 6px;
+      max-height: 180px;
+      overflow-y: auto;
+      border-top: 1px solid #eee;
+      padding-top: 4px;
+      font-size: 11px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 3px;
+      white-space: nowrap;
+    }
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(0,0,0,0.1);
+      flex-shrink: 0;
+    }
+
+    .small-label {
+      font-size: 11px;
+      color: #888;
+    }
+
+    .palette-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+      gap: 4px;
+    }
+    .palette-row-input {
+      flex: 1;
+      padding: 4px 6px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    @media (min-width: 900px) {
+      body {
+        padding: 16px;
+      }
+      .container {
+        flex-direction: row;
+        align-items: flex-start;
+      }
+      .container > .panel:first-child {
+        flex: 0 0 360px;
+      }
+      .container > .panel:last-child {
+        flex: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>보석십자수 / 비즈 도안 생성기</h1>
+
+  <div class="container">
+    <!-- 설정 패널 -->
+    <div class="panel">
+      <label>이미지 업로드</label>
+      <input type="file" id="imageInput" accept="image/*" />
+
+      <div class="inline-group">
+        <div>
+          <label>가로 비즈</label>
+          <input type="number" id="beadWidth" value="18" min="1" />
+        </div>
+        <div>
+          <label>세로 비즈</label>
+          <input type="number" id="beadHeight" value="14" min="1" />
+        </div>
+      </div>
+
+      <!-- cm ↔ 비즈 계산 -->
+      <label>내부 크기(cm 기준으로 비즈 개수 계산)</label>
+      <div class="inline-group">
+        <div>
+          <input type="number" id="cmWidth" step="0.1" min="0" placeholder="가로 cm" />
+        </div>
+        <div>
+          <input type="number" id="cmHeight" step="0.1" min="0" placeholder="세로 cm" />
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:4px;margin-bottom:4px;">
+        <button type="button" id="cmCalcButton" class="mini-btn">cm → 비즈</button>
+        <button type="button" id="beadsToCmButton" class="mini-btn">비즈 → cm</button>
+      </div>
+      <div id="sizeInfo" class="small-label" style="margin-top:-2px; margin-bottom:6px;">
+        * 1cm ≈ 4비즈 기준으로 대략적인 크기를 계산합니다.
+      </div>
+
+      <!-- 이미지 맞추는 방식 -->
+      <label>이미지 맞추는 방식</label>
+      <select id="fitMode">
+        <option value="fit">비율 유지 · 안쪽에 맞추기 (여백 생길 수 있음)</option>
+        <option value="fill">비율 유지 · 칸을 가득 채우기 (잘릴 수 있음)</option>
+        <option value="stretch">비율 무시 · 칸에 딱 맞게 늘리기 (왜곡)</option>
+      </select>
+
+      <!-- 색상 개수 제한 -->
+      <label>최대 사용 색 개수 (비우면 전체 사용)</label>
+      <input type="number" id="colorCount" min="1" placeholder="예: 5" />
+
+      <!-- 팔레트 UI -->
+      <label>팔레트 (색 + 비즈번호)</label>
+      <div id="paletteRows"></div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:4px;">
+        <button type="button" id="addPaletteRow" class="mini-btn">+ 팔레트 줄 추가</button>
+      </div>
+      <div class="small-label" style="margin-bottom:6px;">
+        * 한 줄에 <b>#RRGGBB - 비즈번호</b> 형식으로 입력해 주세요.<br>
+        &nbsp;&nbsp;예) <code>#B71C11 - 349</code><br>
+        * 번호를 비워두면 1, 2, 3... 순서대로 자동으로 번호가 매겨집니다.
+      </div>
+
+      <div class="btn-row">
+        <button id="dotButton" disabled style="flex:1;">도안 생성</button>
+        <button id="downloadButton" disabled style="flex:1;">PNG 저장 (도안+범례)</button>
+      </div>
+
+      <div id="status" class="small-label" style="margin-top:4px;"></div>
+    </div>
+
+    <!-- 미리보기 패널 -->
+    <div class="panel preview-wrap">
+      <div>
+        <div class="small-label">원본 이미지</div>
+        <canvas id="originalCanvas"></canvas>
+      </div>
+
+      <div>
+        <div class="small-label">도안 (색 + 기호) — 칸을 터치/클릭하면 색이 순환합니다.</div>
+        <canvas id="patternCanvas"></canvas>
+      </div>
+
+      <div>
+        <div class="small-label">기호 / 비즈번호 / 색 / 개수</div>
+        <div id="legend" class="legend"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ---------------- 기본 팔레트 & 비즈 번호 ---------------- */
+
+const defaultPaletteHexList = [
+  "#B71C11", "#B4111E", "#CD1622", "#BA2031", "#F2556B", "#DE1D36",
+  "#F9CED5", "#F5ACBF", "#F08198", "#EBB3BC", "#F49DB7", "#EC8CA7",
+  "#EB6692", "#C1A5D0", "#AD86CF", "#8B63B2", "#6E4399", "#1E9DCC",
+  "#1896AB", "#94C5E0", "#7FC4DA", "#AECAE1", "#95BCEB", "#8DB2DD",
+  "#8999B3", "#9EC8EC", "#8BB5DF", "#85ACE0", "#8BEDE4", "#5AC2B6",
+  "#2B9A91", "#9ADDB2", "#9CE8BE", "#67E7B9", "#CBE2BE", "#B3E67A",
+  "#9CD777", "#7BBF74", "#6EB687", "#71AB8F", "#75A18E", "#F88F2C",
+  "#F56822", "#F3DFC4", "#E8A67D", "#A4D725", "#69AB26", "#4B8C34",
+  "#E7DD40", "#EEE1A3", "#F8DD30", "#EEAF22", "#F2CE7C", "#C1B085",
+  "#CC9B6F", "#A76C37", "#894E26", "#6F4329", "#655046", "#AAAAA6",
+  "#88898E", "#666A6E", "#262628", "#E6E6E4"
+];
+
+const defaultBeadCodeList = [
+  "349","817","666","321","893","891",
+  "963","3716","961","605","604","602","600",
+  "211","209","208","3837","3846","3844","3841",
+  "3761","813","826","825","824","996","3843","995",
+  "964","959","3812","564","955","954","164","704",
+  "703","702","701","700","699","740","970","951",
+  "3856","907","906","905","445","3078","726","972",
+  "744","739","437","435","434","433","938","415",
+  "318","317","310","B5200"
+];
+
+/* 기호 목록 */
+const SYMBOLS = [
+  "●","■","★","▲","◆","○","□","△",
+  "◎","◇","⬤","⬛","✦","✧","✪","✫",
+  "1","2","3","4","5","6","7","8","9","0",
+  "A","B","C","D","E","F","G","H","I","J","K","L","M",
+  "N","O","P","Q","R","S","T","U","V","W","X","Y","Z",
+  "ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"
+];
+
+/* ---------------- DOM 요소 ---------------- */
+
+const imageInput       = document.getElementById("imageInput");
+const beadWidthInput   = document.getElementById("beadWidth");
+const beadHeightInput  = document.getElementById("beadHeight");
+const cmWidthInput     = document.getElementById("cmWidth");
+const cmHeightInput    = document.getElementById("cmHeight");
+const cmCalcButton     = document.getElementById("cmCalcButton");
+const beadsToCmButton  = document.getElementById("beadsToCmButton");
+const sizeInfoEl       = document.getElementById("sizeInfo");
+const fitModeSelect    = document.getElementById("fitMode");
+const colorCountInput  = document.getElementById("colorCount");
+const paletteRowsEl    = document.getElementById("paletteRows");
+const addPaletteRowBtn = document.getElementById("addPaletteRow");
+
+const dotButton        = document.getElementById("dotButton");
+const downloadButton   = document.getElementById("downloadButton");
+const legendEl         = document.getElementById("legend");
+const statusEl         = document.getElementById("status");
+
+const originalCanvas   = document.getElementById("originalCanvas");
+const originalCtx      = originalCanvas.getContext("2d");
+const patternCanvas    = document.getElementById("patternCanvas");
+const patternCtx       = patternCanvas.getContext("2d");
+
+const BEADS_PER_CM = 4;
+
+let loadedImage = null;
+let currentPattern = null; // {W,H,cell,cellInfo,colorList,symbolMap,entries}
+
+/* ---------------- 팔레트 UI ---------------- */
+
+function addPaletteRow(hex="", code="") {
+  const row = document.createElement("div");
+  row.className = "palette-row";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "palette-row-input";
+  input.placeholder = "#RRGGBB - 번호 (예: #B71C11 - 349)";
+  input.value = hex ? `${hex} - ${code || ""}` : "";
+
+  const delBtn = document.createElement("button");
+  delBtn.type = "button";
+  delBtn.textContent = "✕";
+  delBtn.className = "mini-btn";
+  delBtn.onclick = () => row.remove();
+
+  row.appendChild(input);
+  row.appendChild(delBtn);
+  paletteRowsEl.appendChild(row);
+}
+
+function initPaletteRows() {
+  paletteRowsEl.innerHTML = "";
+  for (let i=0; i<defaultPaletteHexList.length; i++) {
+    addPaletteRow(defaultPaletteHexList[i], defaultBeadCodeList[i] || String(i+1));
+  }
+}
+
+addPaletteRowBtn.addEventListener("click", () => addPaletteRow());
+
+/* ---------------- 유틸 ---------------- */
+
+function hexToRGB(hex) {
+  const h = hex.replace("#","");
+  const r = parseInt(h.substring(0,2),16);
+  const g = parseInt(h.substring(2,4),16);
+  const b = parseInt(h.substring(4,6),16);
+  return { r, g, b };
+}
+
+// 팔레트: "#RRGGBB - 코드" 형식 파싱
+function parsePaletteFromUI() {
+  const inputs = document.querySelectorAll(".palette-row-input");
+  const result = [];
+  let autoIndex = 1;
+
+  inputs.forEach((input, idx) => {
+    let line = input.value.trim();
+    if (!line) return;
+
+    const m = line.match(/#?([0-9a-fA-F]{6})/);
+    if (!m) return;
+    const hex = m[1].toUpperCase();
+    const { r, g, b } = hexToRGB(hex);
+
+    let rest = line.slice(m.index + m[0].length).trim();
+    rest = rest.replace(/^[-–—:,]+/, "").trim();
+    const code = rest || String(autoIndex);
+
+    result.push({
+      r, g, b,
+      hex: "#" + hex,
+      beadCode: code,
+      paletteIndex: idx
+    });
+    autoIndex++;
+  });
+
+  return result;
+}
+
+function nearestColor(r,g,b,palette) {
+  let best = palette[0];
+  let bestDist = Infinity;
+  for (const c of palette) {
+    const dr = r - c.r;
+    const dg = g - c.g;
+    const db = b - c.b;
+    const dist = dr*dr + dg*dg + db*db;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = c;
+    }
+  }
+  return best;
+}
+
+function colorDist2(c1, c2) {
+  const dr = c1.r - c2.r;
+  const dg = c1.g - c2.g;
+  const db = c1.b - c2.b;
+  return dr*dr + dg*dg + db*db;
+}
+
+function getLuminance(r,g,b) {
+  return 0.2126*r + 0.7152*g + 0.0722*b;
+}
+
+/* ---------------- 이미지 업로드 ---------------- */
+
+imageInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      loadedImage = img;
+      const maxW = 320;
+      const scale = Math.min(maxW / img.width, 1);
+      originalCanvas.width = img.width * scale;
+      originalCanvas.height = img.height * scale;
+      originalCtx.clearRect(0,0,originalCanvas.width,originalCanvas.height);
+      originalCtx.drawImage(img,0,0,originalCanvas.width,originalCanvas.height);
+      dotButton.disabled = false;
+      statusEl.textContent = "";
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ---------------- cm ↔ 비즈 계산 ---------------- */
+
+cmCalcButton.addEventListener("click", () => {
+  const cw = parseFloat(cmWidthInput.value);
+  const ch = parseFloat(cmHeightInput.value);
+  if (!cw || !ch || cw <= 0 || ch <= 0) {
+    alert("가로 및 세로 cm 값을 올바르게 입력해 주세요.");
+    return;
+  }
+  const bw = Math.round(cw * BEADS_PER_CM);
+  const bh = Math.round(ch * BEADS_PER_CM);
+  beadWidthInput.value  = bw;
+  beadHeightInput.value = bh;
+  sizeInfoEl.textContent =
+    `대략 가로 ${cw.toFixed(1)}cm, 세로 ${ch.toFixed(1)}cm → 비즈 ${bw} × ${bh}개 (1cm≈${BEADS_PER_CM}비즈 기준)`;
+});
+
+beadsToCmButton.addEventListener("click", () => {
+  const bw = parseInt(beadWidthInput.value,10);
+  const bh = parseInt(beadHeightInput.value,10);
+  if (!bw || !bh || bw <= 0 || bh <= 0) {
+    alert("가로 및 세로 비즈 개수를 올바르게 입력해 주세요.");
+    return;
+  }
+  const cw = bw / BEADS_PER_CM;
+  const ch = bh / BEADS_PER_CM;
+  cmWidthInput.value  = cw.toFixed(1);
+  cmHeightInput.value = ch.toFixed(1);
+  sizeInfoEl.textContent =
+    `대략 가로 ${cw.toFixed(1)}cm, 세로 ${ch.toFixed(1)}cm (1cm≈${BEADS_PER_CM}비즈 기준)`;
+});
+
+/* ---------------- 도안 생성 ---------------- */
+
+dotButton.addEventListener("click", () => {
+  if (!loadedImage) return;
+
+  const W = parseInt(beadWidthInput.value,10);
+  const H = parseInt(beadHeightInput.value,10);
+  if (!W || !H || W <= 0 || H <= 0) {
+    alert("가로 및 세로 비즈 개수를 올바르게 입력해 주세요.");
+    return;
+  }
+
+  let palette = parsePaletteFromUI();
+  if (!palette.length) {
+    alert("팔레트가 비어 있습니다. \"#RRGGBB - 번호\" 형식으로 입력해 주세요.");
+    return;
+  }
+
+  statusEl.textContent = "도안을 생성하는 중입니다...";
+
+  const temp = document.createElement("canvas");
+  temp.width = W;
+  temp.height = H;
+  const tctx = temp.getContext("2d");
+
+  const fitMode = fitModeSelect.value;
+  const imgW = loadedImage.width;
+  const imgH = loadedImage.height;
+
+  if (fitMode === "stretch") {
+    tctx.drawImage(loadedImage, 0, 0, W, H);
+  } else {
+    const scaleFit  = Math.min(W/imgW, H/imgH);
+    const scaleFill = Math.max(W/imgW, H/imgH);
+    const scale = (fitMode === "fit") ? scaleFit : scaleFill;
+    const drawW = imgW * scale;
+    const drawH = imgH * scale;
+    const dx = (W - drawW) / 2;
+    const dy = (H - drawH) / 2;
+    tctx.clearRect(0,0,W,H);
+    tctx.drawImage(loadedImage, dx, dy, drawW, drawH);
+  }
+
+  const imgData = tctx.getImageData(0,0,W,H);
+  const d = imgData.data;
+
+  const cellInfo = Array.from({ length: H }, () => Array(W).fill(null));
+  let usedColorStats = new Map();
+
+  // 1차 매핑
+  for (let y=0; y<H; y++) {
+    for (let x=0; x<W; x++) {
+      const i = (y*W + x)*4;
+      let r = d[i], g = d[i+1], b = d[i+2], a = d[i+3];
+      if (a === 0) { r=g=b=255; }
+
+      const c = nearestColor(r,g,b,palette);
+      cellInfo[y][x] = c;
+
+      let stat = usedColorStats.get(c.hex);
+      if (!stat) {
+        stat = { color: c, count: 0 };
+        usedColorStats.set(c.hex, stat);
+      }
+      stat.count++;
+    }
+  }
+
+  // 색 개수 제한
+  const colorCountVal = parseInt(colorCountInput.value,10);
+  let usedArray = Array.from(usedColorStats.values());
+
+  if (!Number.isNaN(colorCountVal) && colorCountVal > 0 && colorCountVal < usedArray.length) {
+    usedArray.sort((a,b) => b.count - a.count);
+    const maxCount = usedArray[0].count;
+
+    const selected = [ usedArray[0] ];
+    const selectedHexSet = new Set([ selected[0].color.hex ]);
+
+    while (selected.length < colorCountVal && selected.length < usedArray.length) {
+      let bestEntry = null;
+      let bestScore = -1;
+
+      for (const entry of usedArray) {
+        if (selectedHexSet.has(entry.color.hex)) continue;
+
+        let minD2 = Infinity;
+        for (const s of selected) {
+          const d2 = colorDist2(entry.color, s.color);
+          if (d2 < minD2) minD2 = d2;
+        }
+
+        const usageWeight = 0.5 + 0.5 * (entry.count / maxCount);
+        const score = minD2 * usageWeight;
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestEntry = entry;
+        }
+      }
+
+      if (!bestEntry) break;
+      selected.push(bestEntry);
+      selectedHexSet.add(bestEntry.color.hex);
+    }
+
+    const limitedPalette = selected.map(v => v.color);
+
+    const newStats = new Map();
+    for (let y=0; y<H; y++) {
+      for (let x=0; x<W; x++) {
+        const orig = cellInfo[y][x];
+        const c2 = nearestColor(orig.r, orig.g, orig.b, limitedPalette);
+        cellInfo[y][x] = c2;
+
+        let stat = newStats.get(c2.hex);
+        if (!stat) {
+          stat = { color: c2, count: 0 };
+          newStats.set(c2.hex, stat);
+        }
+        stat.count++;
+      }
+    }
+    usedColorStats = newStats;
+  }
+
+  const colorList = Array.from(usedColorStats.values())
+    .map(v => v.color)
+    .sort((a,b) => a.paletteIndex - b.paletteIndex);
+
+  const symbolMap = new Map();
+  colorList.forEach((c, idx) => {
+    const sym = SYMBOLS[idx % SYMBOLS.length];
+    symbolMap.set(c.hex, sym);
+  });
+
+  currentPattern = {
+    W, H,
+    cell: 18,
+    cellInfo,
+    colorList,
+    symbolMap,
+    entries: []
+  };
+
+  redrawPattern();
+  downloadButton.disabled = false;
+});
+
+function redrawPattern() {
+  if (!currentPattern) return;
+
+  const { W, H, cell, cellInfo, colorList, symbolMap } = currentPattern;
+
+  const countMap = new Map();
+  for (let y=0; y<H; y++) {
+    for (let x=0; x<W; x++) {
+      const c = cellInfo[y][x];
+      if (!c) continue;
+      let v = countMap.get(c.hex);
+      if (!v) {
+        v = { color: c, count: 0 };
+        countMap.set(c.hex, v);
+      }
+      v.count++;
+    }
+  }
+
+  const entries = Array.from(countMap.values())
+    .sort((a,b) => a.color.paletteIndex - b.color.paletteIndex);
+  currentPattern.entries = entries;
+
+  patternCanvas.width  = W * cell;
+  patternCanvas.height = H * cell;
+  patternCtx.clearRect(0,0,patternCanvas.width,patternCanvas.height);
+
+  patternCtx.textAlign = "center";
+  patternCtx.textBaseline = "middle";
+  patternCtx.font = "10px system-ui";
+
+  for (let y=0; y<H; y++) {
+    for (let x=0; x<W; x++) {
+      const c = cellInfo[y][x];
+      if (!c) continue;
+      const { r, g, b, hex } = c;
+
+      patternCtx.fillStyle = `rgb(${r},${g},${b})`;
+      patternCtx.fillRect(x*cell, y*cell, cell, cell);
+
+      const sym = symbolMap.get(hex) || "?";
+      const lum = getLuminance(r,g,b);
+      patternCtx.fillStyle = (lum < 150) ? "white" : "black";
+      patternCtx.fillText(sym, x*cell + cell/2, y*cell + cell/2);
+    }
+  }
+
+  patternCtx.strokeStyle = "rgba(0,0,0,0.1)";
+  patternCtx.lineWidth = 0.5;
+  for (let x=0; x<=W; x++) {
+    patternCtx.beginPath();
+    patternCtx.moveTo(x*cell+0.5,0);
+    patternCtx.lineTo(x*cell+0.5,H*cell);
+    patternCtx.stroke();
+  }
+  for (let y=0; y<=H; y++) {
+    patternCtx.beginPath();
+    patternCtx.moveTo(0,y*cell+0.5);
+    patternCtx.lineTo(W*cell,y*cell+0.5);
+    patternCtx.stroke();
+  }
+
+  legendEl.innerHTML = "";
+  const totalBeads = W*H;
+
+  entries.forEach(entry => {
+    const sym = symbolMap.get(entry.color.hex) || "?";
+    const item = document.createElement("div");
+    item.className = "legend-item";
+
+    const colorBox = document.createElement("div");
+    colorBox.className = "legend-color";
+    colorBox.style.backgroundColor = entry.color.hex;
+
+    const text = document.createElement("div");
+    const percent = ((entry.count / totalBeads) * 100).toFixed(1);
+
+    text.textContent =
+      `${sym} ${entry.color.beadCode} ${entry.color.hex} — ${entry.count}개 (${percent}%)`;
+
+    item.appendChild(colorBox);
+    item.appendChild(text);
+    legendEl.appendChild(item);
+  });
+
+  statusEl.textContent =
+    `완료되었습니다. 총 비즈 ${totalBeads}개, 사용 색상 ${entries.length}개입니다.`;
+}
+
+/* ---------------- 터치/클릭으로 색 순환 ---------------- */
+
+patternCanvas.addEventListener("click", handlePatternTap);
+patternCanvas.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  const touch = e.changedTouches[0];
+  handlePatternTap(touch);
+});
+
+function handlePatternTap(e) {
+  if (!currentPattern) return;
+  const { W, H, cell, cellInfo, colorList } = currentPattern;
+  const rect = patternCanvas.getBoundingClientRect();
+  const px = e.clientX - rect.left;
+  const py = e.clientY - rect.top;
+  const x = Math.floor(px / cell);
+  const y = Math.floor(py / cell);
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  if (!colorList.length) return;
+
+  const cur = cellInfo[y][x];
+  let idx = colorList.findIndex(c => cur && c.hex === cur.hex);
+  if (idx === -1) idx = 0;
+  else idx = (idx + 1) % colorList.length;
+  cellInfo[y][x] = colorList[idx];
+  redrawPattern();
+}
+
+/* ---------------- PNG 저장 (도안 + 범례) ---------------- */
+
+downloadButton.addEventListener("click", () => {
+  if (!currentPattern) return;
+
+  const { W, H, cell, entries, symbolMap } = currentPattern;
+  const patternW = patternCanvas.width;
+  const patternH = patternCanvas.height;
+  const totalBeads = W * H;
+
+  const legendLineHeight = 18;
+  const legendMarginTop = 10;
+  const legendHeight = legendMarginTop + legendLineHeight * entries.length + 16;
+
+  const exportCanvas = document.createElement("canvas");
+  exportCanvas.width = patternW;
+  exportCanvas.height = patternH + legendHeight;
+  const ctx = exportCanvas.getContext("2d");
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0,0,exportCanvas.width,exportCanvas.height);
+
+  ctx.drawImage(patternCanvas, 0, 0);
+
+  ctx.font = "12px system-ui";
+  ctx.textBaseline = "middle";
+
+  let y = patternH + legendMarginTop + legendLineHeight/2;
+  entries.forEach(entry => {
+    const sym = symbolMap.get(entry.color.hex) || "?";
+    const boxX = 8;
+    const boxSize = 12;
+
+    ctx.fillStyle = entry.color.hex;
+    ctx.fillRect(boxX, y - boxSize/2, boxSize, boxSize);
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
+    ctx.strokeRect(boxX, y - boxSize/2, boxSize, boxSize);
+
+    const percent = ((entry.count / totalBeads) * 100).toFixed(1);
+    const text = `${sym}  ${entry.color.beadCode}  ${entry.color.hex} — ${entry.count}개 (${percent}%)`;
+    ctx.fillStyle = "#000000";
+    ctx.fillText(text, boxX + boxSize + 6, y);
+
+    y += legendLineHeight;
+  });
+
+  const a = document.createElement("a");
+  a.download = "bead_pattern.png";
+  a.href = exportCanvas.toDataURL("image/png");
+  a.click();
+});
+
+/* ---------------- 초기화 ---------------- */
+
+window.addEventListener("load", () => {
+  initPaletteRows();
+});
+</script>
+
+</body>
+</html>
